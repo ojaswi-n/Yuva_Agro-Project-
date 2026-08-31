@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disease Detection — Yuva Agro</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a href="index.html" class="logo">
+      <span class="yuva">Yuva</span><span class="agro">Agro</span>
+      <span class="mark">युवा एग्रो</span>
+    </a>
+    <nav class="main-nav" id="mainNav">
+      <a href="index.html">Home</a>
+      <a href="water-calculator.html">Water Calculator</a>
+      <a href="fertilizer-calculator.html">Fertilizer Calculator</a>
+      <a href="disease-detection.html" class="active">Disease Detection</a>
+      <div class="lang-toggle">
+        <button class="on">EN</button>
+        <button>हिं</button>
+      </div>
+    </nav>
+    <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
+  </div>
+</header>
+
+<div class="furrow"></div>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Crop health</p>
+      <h2>Disease Detection</h2>
+      <p>Upload or capture a clear photo of the affected leaf, stem, or fruit. We'll give you a first read on what might be going on.</p>
+    </div>
+
+    <div class="notice">
+      <strong>Note for the dev team:</strong> this page is frontend-only. "Analyze Photo" currently simulates a result after a short delay. Wire the <code>analyzePhoto()</code> function in the script below to your actual ML model endpoint (image in → diagnosis + confidence out).
+    </div>
+
+    <div class="calc-shell">
+      <!-- UPLOAD -->
+      <div>
+        <div id="uploadBox" class="upload-box">
+          <div class="icon">📷</div>
+          <p style="font-weight:700; margin-bottom:6px;">Drop a photo here, or</p>
+          <label for="fileInput" class="btn btn-outline-dark" style="display:inline-flex; margin-top:6px;">Choose Photo</label>
+          <input type="file" id="fileInput" accept="image/*" capture="environment">
+          <p class="hint" style="margin-top:14px; color:var(--ink-soft);">Best results: close-up, good daylight, one leaf in focus.</p>
+        </div>
+
+        <div id="previewSection" style="display:none; margin-top:20px;">
+          <div class="preview-wrap">
+            <img id="previewImg" src="" alt="Uploaded crop photo preview">
+          </div>
+          <div style="display:flex; gap:12px;">
+            <button id="analyzeBtn" class="btn btn-primary btn-block">Analyze Photo</button>
+            <button id="resetBtn" class="btn btn-outline-dark">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULT -->
+      <div class="result-panel">
+        <div id="resultEmpty" class="result-empty">
+          <span class="icon">🔍</span>
+          Upload a photo to see the diagnosis here.
+        </div>
+
+        <div id="analyzingCard" class="seed-card" style="display:none; text-align:center;">
+          <div class="stamp">SCAN<br>LEAF</div>
+          <h3 style="padding-right:0;">Analyzing photo…</h3>
+          <p>Checking against known disease patterns.</p>
+          <div class="spinner" style="border-top-color: var(--field-green); border-color: rgba(31,58,46,0.2); margin-top:6px;"></div>
+        </div>
+
+        <div id="resultCard" class="seed-card diagnosis-card" style="display:none;">
+          <div class="stamp">SCAN<br>LEAF</div>
+          <span class="tag">Disease Detection</span>
+          <span class="status warn" id="statusBadge">⚠ Possible issue found</span>
+          <h3 id="diagnosisTitle" style="padding-right:0;">Early Blight (demo result)</h3>
+          <p id="diagnosisDesc">This is a placeholder result shown for frontend demo purposes — it is not a real diagnosis.</p>
+
+          <div class="divider-dash"></div>
+
+          <div class="ledger" style="border:none; background:transparent;">
+            <div class="ledger-row" style="padding-left:0; padding-right:0;">
+              <span class="label">Confidence</span>
+              <span class="value" id="confidenceValue">—</span>
+            </div>
+          </div>
+
+          <div class="divider-dash"></div>
+          <p style="font-size:0.82rem;"><strong>Suggested next step:</strong> <span id="nextStep">Consult a local agricultural extension officer to confirm before treating.</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <div class="foot-brand">Yuva Agro</div>
+      <p style="max-width:32ch; font-size:0.88rem;">Data-backed farming tools for Indian growers.</p>
+    </div>
+    <div class="foot-cols">
+      <div>
+        <h5>Tools</h5>
+        <ul>
+          <li><a href="water-calculator.html">Water Calculator</a></li>
+          <li><a href="fertilizer-calculator.html">Fertilizer Calculator</a></li>
+          <li><a href="disease-detection.html">Disease Detection</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="wrap foot-bottom">© 2026 Yuva Agro. Built for the field.</div>
+</footer>
+
+<script src="script.js"></script>
+<script>
+  const uploadBox = document.getElementById('uploadBox');
+  const fileInput = document.getElementById('fileInput');
+  const previewSection = document.getElementById('previewSection');
+  const previewImg = document.getElementById('previewImg');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const resultEmpty = document.getElementById('resultEmpty');
+  const analyzingCard = document.getElementById('analyzingCard');
+  const resultCard = document.getElementById('resultCard');
+
+  function showPreview(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewSection.style.display = 'block';
+      uploadBox.style.display = 'none';
+      resultEmpty.style.display = 'none';
+      analyzingCard.style.display = 'none';
+      resultCard.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) showPreview(fileInput.files[0]);
+  });
+
+  // Drag and drop support
+  ['dragover', 'dragleave', 'drop'].forEach(evt => {
+    uploadBox.addEventListener(evt, (e) => e.preventDefault());
+  });
+  uploadBox.addEventListener('dragover', () => uploadBox.classList.add('dragover'));
+  uploadBox.addEventListener('dragleave', () => uploadBox.classList.remove('dragover'));
+  uploadBox.addEventListener('drop', (e) => {
+    uploadBox.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) { fileInput.files = e.dataTransfer.files; showPreview(file); }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    previewSection.style.display = 'none';
+    uploadBox.style.display = 'block';
+    resultEmpty.style.display = 'block';
+    analyzingCard.style.display = 'none';
+    resultCard.style.display = 'none';
+  });
+
+  analyzeBtn.addEventListener('click', () => analyzePhoto());
+
+  // ---------------------------------------------------------------
+  // TODO (backend team): replace this simulation with a real call,
+  // e.g.:
+  //   const formData = new FormData();
+  //   formData.append('image', fileInput.files[0]);
+  //   const res = await fetch('/api/detect-disease', { method:'POST', body: formData });
+  //   const data = await res.json(); // { label, confidence, description, nextStep }
+  // ---------------------------------------------------------------
+  function analyzePhoto() {
+    resultEmpty.style.display = 'none';
+    resultCard.style.display = 'none';
+    analyzingCard.style.display = 'block';
+
+    setTimeout(() => {
+      analyzingCard.style.display = 'none';
+      resultCard.style.display = 'block';
+      document.getElementById('confidenceValue').textContent = '87%';
+    }, 1400);
+  }
+</script>
+</body>
+</html>
