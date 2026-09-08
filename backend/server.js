@@ -1,3 +1,4 @@
+const connectDB = require('./config/db');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -15,6 +16,9 @@ app.get('/', (req, res) => {
 app.use('/api/farmers', farmerRoutes);
 
 const PORT = process.env.PORT || 5000;
+
+connectDB();
+
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
 });
