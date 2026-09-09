@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const farmerRoutes = require('./routes/farmerRoutes');
 const diseaseRoutes = require('./routes/diseaseRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/farmers', farmerRoutes);
 app.use('/api/disease', diseaseRoutes);
+app.use('/api/chat', chatRoutes);
 
 const PORT = process.env.PORT || 5000;
 
