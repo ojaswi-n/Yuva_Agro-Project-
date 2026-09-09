@@ -38,8 +38,8 @@
       <p>Upload or capture a clear photo of the affected leaf, stem, or fruit. We'll give you a first read on what might be going on.</p>
     </div>
 
-    <div class="notice">
-      <strong>Note for the dev team:</strong> this page is frontend-only. "Analyze Photo" currently simulates a result after a short delay. Wire the <code>analyzePhoto()</code> function in the script below to your actual ML model endpoint (image in → diagnosis + confidence out).
+    <div id="errorNotice" class="notice" style="display:none; background:#FCE8E6; border-color:var(--rust); color:var(--rust); margin-bottom:20px;">
+      <strong>Error:</strong> <span id="errorMessage"></span>
     </div>
 
     <div class="calc-shell">
@@ -74,7 +74,7 @@
         <div id="analyzingCard" class="seed-card" style="display:none; text-align:center;">
           <div class="stamp">SCAN<br>LEAF</div>
           <h3 style="padding-right:0;">Analyzing photo…</h3>
-          <p>Checking against known disease patterns.</p>
+          <p>Checking against known disease patterns with AI.</p>
           <div class="spinner" style="border-top-color: var(--field-green); border-color: rgba(31,58,46,0.2); margin-top:6px;"></div>
         </div>
 
@@ -82,8 +82,8 @@
           <div class="stamp">SCAN<br>LEAF</div>
           <span class="tag">Disease Detection</span>
           <span class="status warn" id="statusBadge">⚠ Possible issue found</span>
-          <h3 id="diagnosisTitle" style="padding-right:0;">Early Blight (demo result)</h3>
-          <p id="diagnosisDesc">This is a placeholder result shown for frontend demo purposes — it is not a real diagnosis.</p>
+          <h3 id="diagnosisTitle" style="padding-right:0;">—</h3>
+          <p id="diagnosisDesc">—</p>
 
           <div class="divider-dash"></div>
 
@@ -95,7 +95,7 @@
           </div>
 
           <div class="divider-dash"></div>
-          <p style="font-size:0.82rem;"><strong>Suggested next step:</strong> <span id="nextStep">Consult a local agricultural extension officer to confirm before treating.</span></p>
+          <p style="font-size:0.82rem;"><strong>Suggested next step:</strong> <span id="nextStep">—</span></p>
         </div>
       </div>
     </div>
@@ -135,7 +135,27 @@
   const analyzingCard = document.getElementById('analyzingCard');
   const resultCard = document.getElementById('resultCard');
 
+  const errorNotice = document.getElementById('errorNotice');
+  const errorMessage = document.getElementById('errorMessage');
+
+  let currentFile = null;
+
+  function showError(msg) {
+    if (errorMessage && errorNotice) {
+      errorMessage.textContent = msg;
+      errorNotice.style.display = 'block';
+    }
+  }
+
+  function hideError() {
+    if (errorNotice) {
+      errorNotice.style.display = 'none';
+    }
+  }
+
   function showPreview(file) {
+    currentFile = file;
+    hideError();
     const reader = new FileReader();
     reader.onload = (e) => {
       previewImg.src = e.target.result;
@@ -161,38 +181,97 @@
   uploadBox.addEventListener('drop', (e) => {
     uploadBox.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file) { fileInput.files = e.dataTransfer.files; showPreview(file); }
+    if (file) {
+      fileInput.files = e.dataTransfer.files;
+      showPreview(file);
+    }
   });
 
   resetBtn.addEventListener('click', () => {
+    currentFile = null;
     fileInput.value = '';
     previewSection.style.display = 'none';
     uploadBox.style.display = 'block';
     resultEmpty.style.display = 'block';
     analyzingCard.style.display = 'none';
     resultCard.style.display = 'none';
+    hideError();
   });
 
   analyzeBtn.addEventListener('click', () => analyzePhoto());
 
-  // ---------------------------------------------------------------
-  // TODO (backend team): replace this simulation with a real call,
-  // e.g.:
-  //   const formData = new FormData();
-  //   formData.append('image', fileInput.files[0]);
-  //   const res = await fetch('/api/detect-disease', { method:'POST', body: formData });
-  //   const data = await res.json(); // { label, confidence, description, nextStep }
-  // ---------------------------------------------------------------
-  function analyzePhoto() {
+  async function analyzePhoto() {
+    const file = currentFile || (fileInput.files && fileInput.files[0]);
+    if (!file) {
+      showError('Please choose or drop a photo of the affected plant leaf first.');
+      return;
+    }
+
+    // Client-side validations
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showError('Invalid file format. Please upload a JPEG, PNG, or WebP photo.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showError('File size (' + (file.size / (1024 * 1024)).toFixed(1) + 'MB) exceeds the 5MB limit.');
+      return;
+    }
+
+    hideError();
     resultEmpty.style.display = 'none';
     resultCard.style.display = 'none';
     analyzingCard.style.display = 'block';
+    analyzeBtn.disabled = true;
 
-    setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      // Call Express backend endpoint
+      const response = await fetch('http://localhost:5000/api/disease/detect', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || ('Server error: ' + response.status));
+      }
+
+      // Populate UI with response conforming to contract { label, confidence, description, nextStep }
+      document.getElementById('diagnosisTitle').textContent = data.label || 'Diagnosis Complete';
+      document.getElementById('diagnosisDesc').textContent = data.description || '';
+      document.getElementById('confidenceValue').textContent = (typeof data.confidence === 'number' ? data.confidence : 0) + '%';
+      document.getElementById('nextStep').textContent = data.nextStep || 'Consult a local agricultural extension officer.';
+
+      const statusBadge = document.getElementById('statusBadge');
+      const isHealthy = data.label && data.label.toLowerCase().includes('healthy');
+      const isNotPlant = data.confidence === 0 || (data.label && data.label.toLowerCase().includes('not a plant'));
+
+      if (isHealthy) {
+        statusBadge.className = 'status ok';
+        statusBadge.textContent = '✓ Healthy crop';
+      } else if (isNotPlant) {
+        statusBadge.className = 'status warn';
+        statusBadge.textContent = '⚠ Non-plant / Unrecognized';
+      } else {
+        statusBadge.className = 'status warn';
+        statusBadge.textContent = '⚠ Possible issue found';
+      }
+
       analyzingCard.style.display = 'none';
       resultCard.style.display = 'block';
-      document.getElementById('confidenceValue').textContent = '87%';
-    }, 1400);
+    } catch (err) {
+      console.error('Error analyzing crop photo:', err);
+      analyzingCard.style.display = 'none';
+      resultEmpty.style.display = 'block';
+      showError(err.message || 'Unable to analyze photo. Please verify that the backend server is running.');
+    } finally {
+      analyzeBtn.disabled = false;
+    }
   }
 </script>
 </body>
